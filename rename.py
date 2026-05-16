@@ -35,7 +35,9 @@ def query_claude(client: anthropic.Anthropic, text: str) -> dict:
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": f"PDF text:\n{text}"}],
     )
-    return json.loads(response.content[0].text)
+    raw = response.content[0].text.strip()
+    raw = re.sub(r"^```json\s*|\s*```$", "", raw, flags=re.DOTALL)
+    return json.loads(raw)
 
 
 def sanitize_title(title: str) -> str:
