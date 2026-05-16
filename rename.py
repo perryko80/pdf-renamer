@@ -74,6 +74,7 @@ def collect_pdfs(target: Path) -> list[Path]:
 def main():
     parser = argparse.ArgumentParser(description="Auto-rename financial research PDFs")
     parser.add_argument("path", type=Path, help="PDF file or folder containing PDFs")
+    parser.add_argument("--yes", "-y", action="store_true", help="Apply renames without confirmation prompt")
     args = parser.parse_args()
 
     if not args.path.exists():
@@ -114,10 +115,11 @@ def main():
     for src, dst in renames:
         print(f"{src.name:<50}  {dst}")
 
-    answer = input(f"\nApply {len(renames)} rename(s)? [y/N] ").strip().lower()
-    if answer != "y":
-        print("Aborted. No files were renamed.")
-        return
+    if not args.yes:
+        answer = input(f"\nApply {len(renames)} rename(s)? [y/N] ").strip().lower()
+        if answer != "y":
+            print("Aborted. No files were renamed.")
+            return
 
     for src, dst in renames:
         dest_path = src.parent / dst
