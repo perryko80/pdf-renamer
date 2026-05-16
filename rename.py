@@ -15,7 +15,7 @@ SYSTEM_PROMPT = """You extract metadata from financial research PDF text.
 Return ONLY a JSON object with these exact keys:
 - "date": report date as YYMMDD string (e.g. "260517"), or null if unclear
 - "company": issuing firm — must be one of: GS, Citi, CF40, DB, Nomura, JPM — or null if not found
-- "country": ISO-like country code (e.g. "TA" for Taiwan), or null if unclear
+- "country": ISO-like country code (e.g. "TA" for Taiwan), or "Global" if the report has no specific country focus or the country is unclear
 - "title": short descriptive title (max 60 chars, no special characters except spaces and hyphens), or null if unclear
 
 No explanation, no markdown — only the JSON object."""
@@ -50,13 +50,18 @@ def sanitize_title(title: str) -> str:
 
 def build_new_name(meta: dict) -> tuple[str | None, str | None]:
     """Returns (new_filename, missing_field) — one will be None."""
-    for field in ("date", "company", "country", "title"):
+    for field in ("date", "company", "title"):
         if not meta.get(field):
             return None, field
+    if not meta.get("country"):
+        meta["country"] = "Global"
     if meta["company"] not in KNOWN_COMPANIES:
         return None, "company"
+    country = meta["country"]
     title = sanitize_title(meta["title"])
-    name = f"{meta['date']}-{meta['company']}-{meta['country']}-{title}.pdf"
+    if title.lower().startswith(country.lower() + " "):
+        title = title[len(country):].strip()
+    name = f"{meta['date']}-{meta['company']}-{country}-{title}.pdf"
     return name, None
 
 
@@ -82,6 +87,9 @@ def main():
     renames: list[tuple[Path, str]] = []
 
     for pdf in pdfs:
+        if re.match(r"^\d{6}-[^-]+-[^-]+-.*\.pdf$", pdf.name):
+            print(f"[SKIP] {pdf.name} — already renamed")
+            continue
         print(f"Processing {pdf.name} ...", end=" ", flush=True)
         try:
             text = extract_text(pdf)
